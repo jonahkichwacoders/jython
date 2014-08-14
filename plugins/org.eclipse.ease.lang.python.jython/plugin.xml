@@ -20,4 +20,13 @@
             engineID="org.eclipse.ease.python.jython">
       </moduleWrapper>
    </extension>
+ <extension
+       point="org.eclipse.ui.preferencePages">
+    <page
+          category="org.eclipse.ease.preferences.global"
+          class="org.eclipse.ease.lang.python.jython.preferences.PythonLibraryPreferencePage"
+          id="org.eclipse.ease.lang.python.jython.libraryPrefPage"
+          name="Jython external library">
+    </page>
+ </extension>
 </plugin>
