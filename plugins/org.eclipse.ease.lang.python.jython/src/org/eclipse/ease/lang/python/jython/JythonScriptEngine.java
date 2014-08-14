@@ -72,7 +72,7 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 	@Override
 	public void terminateCurrent() {
 		try {
-			mEngine.getSystemState().callExitFunc();
+			getEngine().getSystemState().callExitFunc();
 		} catch (PyIgnoreMethodTag e) {
 			// TODO handle this exception (but for now, at least know it happened)
 			throw new RuntimeException(e);
@@ -85,12 +85,12 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 
 		// register display callback method to extract execution result
 		DisplayHook displayHook = new DisplayHook();
-		mEngine.getSystemState().__displayhook__ = displayHook;
-		mEngine.getSystemState().__dict__.__setitem__("displayhook", displayHook);
+		getEngine().getSystemState().__displayhook__ = displayHook;
+		getEngine().getSystemState().__dict__.__setitem__("displayhook", displayHook);
 
-		mEngine.getSystemState().__setattr__("_jy_interpreter", Py.java2py(mEngine));
+		getEngine().getSystemState().__setattr__("_jy_interpreter", Py.java2py(getEngine()));
 		// imp.load("site");
-		mEngine.getSystemState().path.insert(0, Py.EmptyString);
+		getEngine().getSystemState().path.insert(0, Py.EmptyString);
 
 		setOutputStream(getOutputStream());
 		setInputStream(getInputStream());
@@ -108,14 +108,14 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 		for (String libraryPath : getPythonLibraries()) {
 			if ((libraryPath != null) && !libraryPath.isEmpty()) {
 				PyString element = new PyString(libraryPath);
-				PyList systemPath = mEngine.getSystemState().path;
+				PyList systemPath = getEngine().getSystemState().path;
 				if (!systemPath.contains(element)) {
 					systemPath.add(0, element);
 				}
 			}
 		}
 
-		mEngine.getSystemState().settrace(new JythonTracer());
+		getEngine().getSystemState().settrace(new JythonTracer());
 
 		// FIXME ev we need to set the system path to make jython aware of the changes
 		return true;
@@ -180,7 +180,7 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 			newString = Py.newString(containerPart);
 			Py.getSystemState().path.insert(0, newString);
 		}
-		Py.exec(code, mEngine.getLocals(), null);
+		Py.exec(code, getEngine().getLocals(), null);
 		if (newString != null) {
 			Py.getSystemState().path.remove(newString);
 		}
@@ -219,24 +219,24 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 	public void setOutputStream(final OutputStream outputStream) {
 		super.setOutputStream(outputStream);
 
-		if (mEngine != null)
-			mEngine.setOut(getOutputStream());
+		if (getEngine() != null)
+			getEngine().setOut(getOutputStream());
 	}
 
 	@Override
 	public void setInputStream(final InputStream inputStream) {
 		super.setInputStream(inputStream);
 
-		if (mEngine != null)
-			mEngine.setIn(getInputStream());
+		if (getEngine() != null)
+			getEngine().setIn(getInputStream());
 	}
 
 	@Override
 	public void setErrorStream(final OutputStream errorStream) {
 		super.setErrorStream(errorStream);
 
-		if (mEngine != null)
-			mEngine.setErr(getErrorStream());
+		if (getEngine() != null)
+			getEngine().setErr(getErrorStream());
 	}
 
 	protected Collection<String> getPythonLibraries() {
@@ -252,7 +252,7 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 
 	@Override
 	public boolean hasVariable(final String name) {
-		return mEngine.get(name) != null;
+		return getEngine().get(name) != null;
 	}
 
 	@Override
@@ -260,8 +260,8 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 		if (!isSaveName(name))
 			throw new RuntimeException("\"" + name + "\" is not a valid Python variable name");
 
-		if (mEngine != null)
-			mEngine.set(name, content);
+		if (getEngine() != null)
+			getEngine().set(name, content);
 
 		else
 			mBufferedVariables.put(name, content);
@@ -269,8 +269,8 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 
 	@Override
 	public Object getVariable(final String name) {
-		if (mEngine != null)
-			return mEngine.get(name);
+		if (getEngine() != null)
+			return getEngine().get(name);
 
 		throw new RuntimeException("Cannot retrieve variable, engine not initialized");
 	}
@@ -326,5 +326,9 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 	public void registerJar(final URL url) {
 		// FIXME implement jar classloader
 		throw new RuntimeException("Registering JARs is not supported for python");
+	}
+
+	protected InteractiveInterpreter getEngine() {
+		return mEngine;
 	}
 }
