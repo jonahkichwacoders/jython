@@ -1,0 +1,74 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>ease_jython</groupId>
+	<artifactId>org.eclipse.ease.jython.releng</artifactId>
+	<version>0.1.1-SNAPSHOT</version>
+	<packaging>pom</packaging>
+
+	<parent>
+		<groupId>org.eclipse.e4.releng</groupId>
+		<artifactId>eclipse-parent</artifactId>
+		<version>0.15.0-SNAPSHOT</version>
+	</parent>
+
+	<repositories>
+		<!-- add Kepler repository to resolve dependencies -->
+		<repository>
+			<releases>
+				<enabled>true</enabled>
+			</releases>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
+			<id>eclipse-hosted</id>
+			<url>https://repo.eclipse.org/content/repositories/eclipse/</url>
+		</repository>
+		<repository>
+			<releases>
+				<enabled>true</enabled>
+			</releases>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
+			<id>EASE</id>
+			<layout>p2</layout>
+			<url>http://download.eclipse.org/e4/updates/ease/eclipse-e4-ease-nightly/</url>
+		</repository>
+	</repositories>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>2.5.1</version>
+				<configuration>
+					<source>1.6</source>
+					<target>1.6</target>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+	<modules>
+		<!-- PLugins -->
+		<!-- Lang -->
+		<!-- Python -->
+		<!-- Features -->
+
+		<!-- Update site -->
+		<module>
+			../../Plugins/engines/org.eclipse.ease.lang.python.jython
+		</module>
+		<module>
+			../../Plugins/engines/org.eclipse.ease.lang.python.jython.ui
+		</module>
+		<module>
+			../../Features/org.eclipse.ease.python.jython.feature
+		</module>
+		<module>../../Plugins/engines/org.jython</module>
+		<module>../org.eclipse.ease.jython.releng.p2</module>
+	</modules>
+
+</project>  
