@@ -1,4 +1,4 @@
 jython
 ======
 
-Jython script engine
+Jython integration for EASE
