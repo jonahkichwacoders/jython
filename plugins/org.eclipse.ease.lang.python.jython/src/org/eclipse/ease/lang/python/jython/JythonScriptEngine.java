@@ -18,7 +18,6 @@ import java.net.URL;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -51,8 +50,6 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 	private InteractiveInterpreter mEngine;
 
 	private PyObject mResult;
-
-	private final Map<String, Object> mBufferedVariables = new HashMap<String, Object>();
 
 	private class DisplayHook extends PyObject {
 
@@ -95,12 +92,6 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 		setOutputStream(getOutputStream());
 		setInputStream(getInputStream());
 		setErrorStream(getErrorStream());
-
-		// engine is initialized, set buffered variables
-		for (final String name : mBufferedVariables.keySet())
-			setVariable(name, mBufferedVariables.get(name));
-
-		mBufferedVariables.clear();
 
 		/*
 		 * Not optimized for now. This should done at a Python System level
@@ -251,31 +242,6 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 	}
 
 	@Override
-	public boolean hasVariable(final String name) {
-		return getEngine().get(name) != null;
-	}
-
-	@Override
-	public void setVariable(final String name, final Object content) {
-		if (!isSaveName(name))
-			throw new RuntimeException("\"" + name + "\" is not a valid Python variable name");
-
-		if (getEngine() != null)
-			getEngine().set(name, content);
-
-		else
-			mBufferedVariables.put(name, content);
-	}
-
-	@Override
-	public Object getVariable(final String name) {
-		if (getEngine() != null)
-			return getEngine().get(name);
-
-		throw new RuntimeException("Cannot retrieve variable, engine not initialized");
-	}
-
-	@Override
 	public String getSaveVariableName(final String name) {
 		return getSaveName(name);
 	}
@@ -313,16 +279,6 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 	}
 
 	@Override
-	public Object removeVariable(final String name) {
-		throw new RuntimeException("not supported");
-	}
-
-	@Override
-	public Map<String, Object> getVariables() {
-		throw new RuntimeException("not supported");
-	}
-
-	@Override
 	public void registerJar(final URL url) {
 		// FIXME implement jar classloader
 		throw new RuntimeException("Registering JARs is not supported for python");
@@ -330,5 +286,34 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 
 	protected InteractiveInterpreter getEngine() {
 		return mEngine;
+	}
+
+	@Override
+	protected Object internalGetVariable(final String name) {
+		return getEngine().get(name);
+	}
+
+	@Override
+	protected Map<String, Object> internalGetVariables() {
+		throw new RuntimeException("not supported");
+	}
+
+	@Override
+	protected boolean internalHasVariable(final String name) {
+		return getEngine().get(name) != null;
+	}
+
+	@Override
+	protected void internalSetVariable(final String name, final Object content) {
+		if (!isSaveName(name))
+			throw new RuntimeException("\"" + name + "\" is not a valid Python variable name");
+
+		getEngine().set(name, content);
+
+	}
+
+	@Override
+	protected Object internalRemoveVariable(final String name) {
+		throw new RuntimeException("not supported");
 	}
 }
