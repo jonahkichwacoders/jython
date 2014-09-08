@@ -1,0 +1,22 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: Jython Debugger Support
+Bundle-SymbolicName: org.eclipse.ease.lang.python.jython.debugger;singleton:=true
+Bundle-Version: 0.1.1.qualifier
+Bundle-Activator: org.eclipse.ease.lang.python.jython.debugger.Activator
+Bundle-Vendor: EASE
+Require-Bundle: org.eclipse.core.runtime,
+ org.eclipse.debug.core,
+ org.eclipse.ease,
+ org.eclipse.debug.ui,
+ org.eclipse.jface;bundle-version="3.7.0",
+ org.eclipse.ui.workbench,
+ org.eclipse.ui.ide;bundle-version="3.7.0",
+ org.eclipse.ui.editors,
+ org.jython;bundle-version="2.5.3",
+ org.eclipse.ease.lang.python.jython;bundle-version="0.1.1",
+ org.python.pydev.debug
+Bundle-RequiredExecutionEnvironment: JavaSE-1.6
+Bundle-ActivationPolicy: lazy
+Export-Package: org.eclipse.ease.lang.python.jython.debugger,
+ org.eclipse.ease.lang.python.jython.debugger.model
