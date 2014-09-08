@@ -21,22 +21,22 @@ import org.eclipse.ease.debugging.ScriptDebugTarget;
 
 /**
  * ScriptDebugTarget for communication between Eclipse framework and Jython debugger.
+ * 
  * @author kloeschmartin
  *
  */
 public class JythonDebugTarget extends ScriptDebugTarget {
 	private static final String pyBreakpointType = JythonDebugModelPresentation.ID;
-	
+
 	/**
-	 * Constructor for now only calls super constructor and 
-	 * fires CreationEvent.
-	 * 
+	 * Constructor for now only calls super constructor and fires CreationEvent.
+	 *
 	 * @param launch
 	 * @param suspendOnStartup
+	 * @param suspendOnScriptLoad
 	 */
-	public JythonDebugTarget(final ILaunch launch, final boolean suspendOnStartup) {
-		super(launch, suspendOnStartup);
-		fireCreationEvent();
+	public JythonDebugTarget(final ILaunch launch, final boolean suspendOnStartup, final boolean suspendOnScriptLoad) {
+		super(launch, suspendOnStartup, suspendOnScriptLoad);
 	}
 
 	@Override
@@ -50,19 +50,17 @@ public class JythonDebugTarget extends ScriptDebugTarget {
 
 	/**
 	 * Getter methods for all matching breakpoints in given script.
-	 * 
-	 * Currently EASE Jython Debugger uses PyDev breakpoints, 
-	 * this could change though.
+	 *
+	 * Currently EASE Jython Debugger uses PyDev breakpoints, this could change though.
 	 */
 	@Override
 	protected IBreakpoint[] getBreakpoints(final Script script) {
 		return DebugPlugin.getDefault().getBreakpointManager().getBreakpoints(pyBreakpointType);
 	}
-	
+
 	@Override
 	public void breakpointAdded(final IBreakpoint breakpoint) {
 	}
-	
 
 	@Override
 	public void breakpointRemoved(final IBreakpoint breakpoint, final IMarkerDelta delta) {
@@ -71,7 +69,7 @@ public class JythonDebugTarget extends ScriptDebugTarget {
 	@Override
 	public void breakpointChanged(final IBreakpoint breakpoint, final IMarkerDelta delta) {
 	}
-	
+
 	@Override
 	public boolean supportsBreakpoint(final IBreakpoint breakpoint) {
 		return true;

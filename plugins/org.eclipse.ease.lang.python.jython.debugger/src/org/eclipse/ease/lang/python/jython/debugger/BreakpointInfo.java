@@ -14,15 +14,12 @@ import java.io.File;
 
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
-import org.eclipse.debug.core.DebugException;
 import org.eclipse.debug.core.model.IBreakpoint;
 import org.eclipse.debug.core.model.LineBreakpoint;
-import org.python.pydev.debug.model.PyBreakpoint;
 
 /**
- * Helper class to parse IBreakpoint and have easy access to information
- * in Jython.
- * 
+ * Helper class to parse IBreakpoint and have easy access to information in Jython.
+ *
  * @author kloeschmartin
  */
 public class BreakpointInfo {
@@ -31,14 +28,15 @@ public class BreakpointInfo {
 	 */
 	private String mFilename;
 	private int mLinenumber = -1;
-	private String mCondition = null;
-	private int mHitcount = 0;
-	private boolean mTemporary = false;
+	private final String mCondition = null;
+	private final int mHitcount = 0;
+	private final boolean mTemporary = false;
 
 	/**
 	 * Parses breakpoint info from IBreakpoint to members
-	 * 
-	 * @param breakpoint: breakpoint to be parsed.
+	 *
+	 * @param breakpoint
+	 *            : breakpoint to be parsed.
 	 */
 	public BreakpointInfo(final IBreakpoint breakpoint) {
 		// Calculate absolute filename (necessary for Jython debugger)
@@ -53,14 +51,15 @@ public class BreakpointInfo {
 				e.printStackTrace();
 			}
 		}
-		
+
 		// Get condition from PyBreakpoint
-		if (breakpoint instanceof PyBreakpoint) {
-			try {
-				mCondition = ((PyBreakpoint) breakpoint).getCondition();
-			} catch (DebugException e) {
-			}
-		}
+		// FIXME temporary disabled to get rid of pydev dependency
+		// if (breakpoint instanceof PyBreakpoint) {
+		// try {
+		// mCondition = ((PyBreakpoint) breakpoint).getCondition();
+		// } catch (DebugException e) {
+		// }
+		// }
 	}
 
 	// ************************************************************

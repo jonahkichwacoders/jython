@@ -47,7 +47,7 @@ import org.python.util.InteractiveInterpreter;
 
 public class JythonScriptEngine extends AbstractScriptEngine {
 
-	private InteractiveInterpreter mEngine;
+	protected InteractiveInterpreter mEngine;
 
 	private PyObject mResult;
 
