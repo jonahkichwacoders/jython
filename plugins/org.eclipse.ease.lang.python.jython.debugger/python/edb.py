@@ -30,23 +30,23 @@ class Edb(bdb.Bdb):
      
     Used to have safe cross-thread debugging functionality
     '''
-    #: member storing current frame object while breakpoint hit.
-    #: :note: This member is accessed by several threads, always use
-    #:        _frame_lock threading.Lock object to assure thread-safety.
+    # : member storing current frame object while breakpoint hit.
+    # : :note: This member is accessed by several threads, always use
+    # :        _frame_lock threading.Lock object to assure thread-safety.
     _current_frame = None
     _current_file = None
      
-    #: member storing "step" function to be called after breakpoint.
-    #: :note: Once again, this member is used by multiple threads.
-    #:        use _step_lock threading.Lock object to assure thread safety.
+    # : member storing "step" function to be called after breakpoint.
+    # : :note: Once again, this member is used by multiple threads.
+    # :        use _step_lock threading.Lock object to assure thread safety.
     _step_func = None
     _step_param = None
     
-    #: Flag to signalize if debugger should suspend on startup
+    # : Flag to signalize if debugger should suspend on startup
     _suspend_on_startup = False
     
-    #: Flag to signalize if debugger should suspend when new script is loaded.
-    #: Not in use yet
+    # : Flag to signalize if debugger should suspend when new script is loaded.
+    # : Not in use yet
     _suspend_on_script_load = False
 
     def __init__(self, breakpoints=[]):
@@ -62,7 +62,7 @@ class Edb(bdb.Bdb):
         self._frame_lock = threading.RLock()
         self._step_lock = threading.RLock()
 
-    def set_debugger(self,debugger):
+    def set_debugger(self, debugger):
         '''
         Setter method for self._debugger.
         
@@ -136,7 +136,7 @@ class Edb(bdb.Bdb):
         '''
         self.set_break(breakpoint)
 
-    def dispatch_call(self, frame,arg):
+    def dispatch_call(self, frame, arg):
         '''
         Method called before each function call in debugged program.
         
@@ -199,7 +199,7 @@ class Edb(bdb.Bdb):
         '''
         # Use suspend in JythonDebugger. 
         # Would also be possible to directly raise new SuspendedEvent
-        self._debugger.fireSuspendEvent(java.lang.Thread.currentThread(), self._get_stack_trace())
+        self._debugger.fireSuspendEvent(self._get_stack_trace())
         
         # Wait for continuation from Eclipse
         self._continue_event.wait()
@@ -226,7 +226,7 @@ class Edb(bdb.Bdb):
             # Convert from JythonDictionary to Java.util.HashMap
             java_locals = java.util.HashMap()
             for key, val in frame.f_locals.items():
-                java_locals.put(key,val)
+                java_locals.put(key, val)
                 
             # Append frame to stack
             stack.append(org.eclipse.ease.lang.python.jython.debugger.JythonDebugFrame(filename, lineno, java_locals))
@@ -237,6 +237,8 @@ class Edb(bdb.Bdb):
         '''
         Function called when Debugger is about to continue (step or resume).
         '''
+        self._debugger.fireResumedEvent(java.lang.Thread.currentThread(), self._resume_event_type)
+        
         # TODO: think if file should be locked
         # Probably not necessary because communication with JythonDebugger is synchronous
         self._debugger.checkBreakpoints(self._current_file)
@@ -351,7 +353,7 @@ class Edb(bdb.Bdb):
                 if self._current_frame:
                     as_java = HashMap()
                     for key, val in self._current_frame.f_locals.items():
-                        as_java.put(key,val)
+                        as_java.put(key, val)
                     return as_java
                     return self._current_frame.f_locals
              
@@ -390,30 +392,13 @@ class Edb(bdb.Bdb):
             raise ValueError("filename for run must not be empty")
         if not os.path.exists(file_to_run):
             raise IOError("file {} does not exist".format(file_to_run))
-        
-        # HACK: Problem with recompilation of modules. Could be overkill.
-        self.reload_modules()
-        
+                
         self._first = True
+        
         cmd = 'execfile({})'.format(repr(file_to_run))
         bdb.Bdb.run(self, cmd)
         self._debugger = None
         bdb.Bdb.__init__(self, None)
 
-    def reload_modules(self):
-        '''
-        Jython / JythonScriptEngine currently has a problem with changed sources
-        so we reload all imported modules here to have modified sources.
-        '''
-        import sys, types
-        for mod_name, mod in {
-                name: mod for 
-                name, mod in 
-                sys.modules.items() 
-                if mod and isinstance(mod, types.ModuleType) and 
-                mod not in [bdb, sys, types, os, threading] and 
-                name not in ['__main__']
-                }.items():
-            globals().update({mod_name: reload(mod)})
 
 eclipse_jython_debugger = Edb()

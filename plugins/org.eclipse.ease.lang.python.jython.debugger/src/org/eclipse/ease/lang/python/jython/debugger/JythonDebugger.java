@@ -11,7 +11,6 @@
  *******************************************************************************/
 package org.eclipse.ease.lang.python.jython.debugger;
 
-import java.io.File;
 import java.util.List;
 
 import org.eclipse.core.runtime.CoreException;
@@ -39,7 +38,6 @@ import org.python.core.Py;
 import org.python.core.PyBoolean;
 import org.python.core.PyObject;
 import org.python.core.PyString;
-import org.python.util.InteractiveInterpreter;
 
 /**
  * Debugger class handling communication between JythonDebugTarget and edb.py
@@ -48,10 +46,7 @@ import org.python.util.InteractiveInterpreter;
  *
  */
 public class JythonDebugger implements IEventProcessor, IExecutionListener {
-	private InteractiveInterpreter mInterpreter;
 	private PyObject mPyDebugger;
-	private String mPyDir;
-	private Thread mThread;
 
 	/**
 	 * Declarations for variables and function names in Jython:
@@ -81,20 +76,11 @@ public class JythonDebugger implements IEventProcessor, IExecutionListener {
 		mSuspendOnScriptLoad = suspendOnScriptLoad;
 	}
 
-	public void setInterpreter(final InteractiveInterpreter interpreter) {
-		mInterpreter = interpreter;
-	}
-
-	public void setPyDir(final String pyDir) {
-		mPyDir = pyDir;
-	}
-
 	/**
 	 * Method setting up all necessary objects in Jython.
 	 */
-	private void setupJythonObjects() {
-		mInterpreter.execfile(new File(new File(mPyDir), "setup_debugger.py").getAbsolutePath());
-		mPyDebugger = mInterpreter.get(PyDebuggerName);
+	public void setupJythonObjects(PyObject edb) {
+		mPyDebugger = edb;
 		mPyDebugger.invoke(PySetDebuggerCmd, Py.java2py(this));
 		mPyDebugger.invoke(PySetSuspendOnStartupCmd, new PyBoolean(mSuspendOnStartup));
 		mPyDebugger.invoke(PySetSuspendOnScriptLoad, new PyBoolean(mSuspendOnScriptLoad));
@@ -104,7 +90,7 @@ public class JythonDebugger implements IEventProcessor, IExecutionListener {
 	 * Setter method for dispatcher.
 	 *
 	 * @param dispatcher
-	 *            : dispatcher for communication between debugger and debug target.
+	 *            dispatcher for communication between debugger and debug target.
 	 */
 	public void setDispatcher(final EventDispatchJob dispatcher) {
 		mDispatcher = dispatcher;
@@ -114,7 +100,7 @@ public class JythonDebugger implements IEventProcessor, IExecutionListener {
 	 * Helper method to raise event via dispatcher.
 	 *
 	 * @param event
-	 *            : Debug event to be raised.
+	 *            Debug event to be raised.
 	 */
 	private void fireDispatchEvent(final IDebugEvent event) {
 		synchronized (mDispatcher) {
@@ -132,7 +118,6 @@ public class JythonDebugger implements IEventProcessor, IExecutionListener {
 	public void notify(final IScriptEngine engine, final Script script, final int status) {
 		switch (status) {
 		case ENGINE_START:
-			setupJythonObjects();
 			fireDispatchEvent(new EngineStartedEvent());
 			break;
 		case ENGINE_END:
@@ -176,7 +161,7 @@ public class JythonDebugger implements IEventProcessor, IExecutionListener {
 	 * If other type given, then resume will be called.
 	 *
 	 * @param event
-	 *            : ResumeRequest containing necessary information for action to be performed
+	 *            ResumeRequest containing necessary information for action to be performed
 	 */
 	private void handleResumeRequest(final ResumeRequest event) {
 		// Simply switch over the type and call according function
@@ -195,7 +180,6 @@ public class JythonDebugger implements IEventProcessor, IExecutionListener {
 			mPyDebugger.invoke(PyResumeCmd);
 			break;
 		}
-		fireDispatchEvent(new ResumedEvent(mThread, event.getType()));
 	}
 
 	/**
@@ -211,16 +195,19 @@ public class JythonDebugger implements IEventProcessor, IExecutionListener {
 	/**
 	 * Function called by Jython Edb object firing a SuspendedEvent with the given stacktrace
 	 */
-	public void fireSuspendEvent(final Thread thread, final List<IScriptDebugFrame> stack) {
-		mThread = thread;
-		fireDispatchEvent(new SuspendedEvent(1, thread, stack));
+	public void fireSuspendEvent(final List<IScriptDebugFrame> stack) {
+		fireDispatchEvent(new SuspendedEvent(1, Thread.currentThread(), stack));
+	}
+
+	public void fireResumedEvent(Thread thread, int type) {
+		fireDispatchEvent(new ResumedEvent(thread, type));
 	}
 
 	/**
 	 * Handles BreakpointRequest by setting Breakpoint in Jython.
 	 *
 	 * @param event
-	 *            : Event containing all necessary information for the desired Breakpoint.
+	 *            Event containing all necessary information for the desired Breakpoint.
 	 */
 	private void handleBreakpointRequest(final BreakpointRequest event) {
 		// Simple check to see if breakpoint is enabled.
@@ -243,19 +230,22 @@ public class JythonDebugger implements IEventProcessor, IExecutionListener {
 	 * Checks if it is necessary to set new breakpoint in Jython
 	 *
 	 * @param filename
-	 *            : filename of new Jython file currently being executed.
+	 *            filename of new Jython file currently being executed.
 	 */
 	public void checkBreakpoints(final String filename) {
 		// Simple check to see if debugger already Garbage-collected
 		if (mPyDebugger == null)
 			return;
 
-		// BreakpointInfo object is used to have easier access to Breakpoint information
+		// BreakpointInfo object is used to have easier access to Breakpoint
+		// information
 		BreakpointInfo info;
-		// Iterate over all Jython breakpoints and set the ones matching new file.
+		// Iterate over all Jython breakpoints and set the ones matching new
+		// file.
 		mPyDebugger.invoke(PyClearBreakpointsCmd, new PyString(filename));
 		for (IBreakpoint bp : DebugPlugin.getDefault().getBreakpointManager().getBreakpoints(JythonDebugModelPresentation.ID)) {
-			// simple check to see if Breakpoint is enabled. Try - catch necessary
+			// simple check to see if Breakpoint is enabled. Try - catch
+			// necessary
 			try {
 				if (!bp.isEnabled()) {
 					continue;
@@ -281,7 +271,7 @@ public class JythonDebugger implements IEventProcessor, IExecutionListener {
 	 * Handler called when script is ready to be executed.
 	 *
 	 * @param script
-	 *            : Script to be executed.
+	 *            Script to be executed.
 	 */
 	public void scriptReady(final Script script) {
 		ScriptReadyEvent ev = new ScriptReadyEvent(script, Thread.currentThread(), true);

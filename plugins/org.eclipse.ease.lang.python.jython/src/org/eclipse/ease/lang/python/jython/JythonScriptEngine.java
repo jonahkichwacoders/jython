@@ -149,7 +149,7 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 			return internalExecute(script, reference, fileName);
 	}
 
-	private Object internalExecute(final Script script, final Object reference, final String fileName) throws Exception {
+	protected Object internalExecute(final Script script, final Object reference, final String fileName) throws Exception {
 		mResult = Py.None;
 
 		PyObject code = Py.compile_command_flags(script.getCode(), "(none)", CompileMode.exec, new CompilerFlags(), true);

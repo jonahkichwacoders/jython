@@ -13,10 +13,10 @@
 package org.eclipse.ease.lang.python.jython.debugger;
 
 import java.io.File;
+import java.io.InputStream;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.ResourcesPlugin;
-import org.eclipse.core.runtime.Platform;
 import org.eclipse.debug.core.ILaunch;
 import org.eclipse.ease.IDebugEngine;
 import org.eclipse.ease.Script;
@@ -24,8 +24,7 @@ import org.eclipse.ease.debugging.EventDispatchJob;
 import org.eclipse.ease.lang.python.jython.JythonScriptEngine;
 import org.eclipse.ease.lang.python.jython.debugger.model.JythonDebugTarget;
 import org.python.core.Py;
-import org.python.core.PyList;
-import org.python.core.PyString;
+import org.python.core.PyObject;
 
 /**
  * A script engine to execute/debug Python code on a Jython interpreter.
@@ -36,52 +35,35 @@ public class JythonDebuggerEngine extends JythonScriptEngine implements IDebugEn
 	private JythonDebugger mDebugger = null;
 
 	private boolean mDebugRun;
-	private final String mPyDir;
-
-	public JythonDebuggerEngine() {
-		super();
-		mPyDir = getPyDir();
-	}
 
 	public void setDebugger(final JythonDebugger debugger) {
 		mDebugger = debugger;
 	}
 
-	/**
-	 * Parses the plugin bundle to get absolute path to plugin's python directory.
-	 *
-	 * FIXME: this is a hack, refactor (kmh)
-	 *
-	 * @return String pyDir: absolute path to python directory
-	 */
-	private String getPyDir() {
-		String pluginRoot = Platform.getBundle("org.eclipse.ease.lang.python.jython.debugger").getLocation();
-		// FIXME: remove - this is ridiculus
-		if (pluginRoot.startsWith("reference:file:"))
-			pluginRoot = pluginRoot.substring(15);
-		return new File(new File(pluginRoot), "python").getAbsolutePath();
-	}
-
-	/**
-	 * Sets up the engine (simply calls JythonScriptEngine's constructor). If configuration is launched in debug mode Python file to set up debugger will be
-	 * called.
-	 */
 	@Override
 	protected boolean setupEngine() {
-		if (!super.setupEngine())
-			return false;
+		if (super.setupEngine()) {
 
-		// Check if currently run in debug mode
-		if (mDebugger != null) {
-			// add python directory to Jython search path
-			addPyDirToJythonPath();
+			// load python part of debugger
+			final InputStream stream = ResourceHelper.getResourceStream("org.eclipse.ease.lang.python.jython.debugger", "python/edb.py");
 
-			// set objects in JythonDebugTarget
-			// FIXME: use events to correctly setup interpreter in JythonDebugTarget
-			mDebugger.setInterpreter(mEngine);
-			mDebugger.setPyDir(mPyDir);
+			try {
+				execute(new Script("Load Python debugger", stream), null, null, false);
+
+				final Object pyDebugger = internalGetVariable("eclipse_jython_debugger");
+				if (pyDebugger instanceof PyObject) {
+					mDebugger.setupJythonObjects((PyObject) pyDebugger);
+					return true;
+				}
+
+			} catch (final Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+
 		}
-		return true;
+
+		return false;
 	}
 
 	/**
@@ -95,7 +77,7 @@ public class JythonDebuggerEngine extends JythonScriptEngine implements IDebugEn
 			return super.execute(script, reference, fileName, uiThread);
 		} else {
 			// FIXME: copied code from JythonScriptEngine necessary for imports.
-			Object file = script.getFile();
+			final Object file = script.getFile();
 			File f = null;
 			if (file instanceof IFile) {
 				f = ((IFile) file).getLocation().toFile();
@@ -104,35 +86,22 @@ public class JythonDebuggerEngine extends JythonScriptEngine implements IDebugEn
 			}
 
 			if (f != null) {
-				String absolutePath = f.getAbsolutePath();
+				final String absolutePath = f.getAbsolutePath();
 				setVariable("__file__", absolutePath);
-				String containerPart = f.getParent();
+				final String containerPart = f.getParent();
 				Py.getSystemState().path.insert(0, Py.newString(containerPart));
 			}
 
 			// use absolute file location that Jython can handle breakpoints correctly
-			String absoluteFilename = new File(ResourcesPlugin.getWorkspace().getRoot().getLocation().toFile(), fileName).getAbsolutePath().replace("\\",
+			final String absoluteFilename = new File(ResourcesPlugin.getWorkspace().getRoot().getLocation().toFile(), fileName).getAbsolutePath().replace("\\",
 					"\\\\");
 
 			// Patch Script to use debugger to start file
-			String patchedCommandString = String.format("%s.run('%s')", JythonDebugger.PyDebuggerName, absoluteFilename);
-			Script patchedScript = new Script(patchedCommandString);
+			final String patchedCommandString = String.format("%s.run('%s')", JythonDebugger.PyDebuggerName, absoluteFilename);
+			final Script patchedScript = new Script(patchedCommandString);
 			mDebugger.scriptReady(script);
 
 			return super.execute(patchedScript, reference, fileName, uiThread);
-		}
-	}
-
-	/**
-	 * Adds the plugin's python directory to Jython search path. Necessary to have Python Edb debugger class available.
-	 */
-	private void addPyDirToJythonPath() {
-		PyString pythonDirectory = new PyString(mPyDir);
-
-		// only append if not on path already
-		PyList systemPath = mEngine.getSystemState().path;
-		if (!systemPath.contains(pythonDirectory)) {
-			systemPath.add(0, pythonDirectory);
 		}
 	}
 
@@ -141,11 +110,12 @@ public class JythonDebuggerEngine extends JythonScriptEngine implements IDebugEn
 	 */
 	@Override
 	public void setupDebugger(final ILaunch launch, final boolean suspendOnStartup, final boolean suspendOnScriptLoad, final boolean showDynamicCode) {
-		JythonDebugTarget target = new JythonDebugTarget(launch, suspendOnStartup, suspendOnScriptLoad);
+		final JythonDebugTarget target = new JythonDebugTarget(launch, suspendOnStartup, suspendOnScriptLoad);
 		mDebugRun = true;
 		launch.addDebugTarget(target);
 
 		final JythonDebugger debugger = new JythonDebugger(this, suspendOnStartup, suspendOnScriptLoad);
+
 		setDebugger(debugger);
 
 		final EventDispatchJob dispatcher = new EventDispatchJob(target, debugger);
