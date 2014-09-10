@@ -63,15 +63,15 @@ public class PythonModuleWrapper extends AbstractModuleWrapper {
 	@Override
 	public String createFunctionWrapper(final IEnvironment environment, final String moduleVariable, final Method method) {
 
-		StringBuilder pythonCode = new StringBuilder();
+		final StringBuilder pythonCode = new StringBuilder();
 
 		// parse parameters
-		List<Parameter> parameters = parseParameters(method);
+		final List<Parameter> parameters = parseParameters(method);
 
 		// build parameter string
-		StringBuilder methodSignature = new StringBuilder();
-		StringBuilder methodCall = new StringBuilder();
-		for (Parameter parameter : parameters) {
+		final StringBuilder methodSignature = new StringBuilder();
+		final StringBuilder methodCall = new StringBuilder();
+		for (final Parameter parameter : parameters) {
 			methodSignature.append(", ").append(parameter.getName());
 			methodCall.append(", ").append(parameter.getName());
 			if (parameter.isOptional())
@@ -83,7 +83,7 @@ public class PythonModuleWrapper extends AbstractModuleWrapper {
 			methodCall.delete(0, 2);
 		}
 
-		StringBuilder body = new StringBuilder();
+		final StringBuilder body = new StringBuilder();
 
 		// insert hooked pre execution code
 		body.append(getPreExecutionCode(environment, method));
@@ -100,7 +100,7 @@ public class PythonModuleWrapper extends AbstractModuleWrapper {
 		body.append("\treturn ").append(IScriptFunctionModifier.RESULT_NAME).append('\n');
 
 		// build function declarations
-		for (String name : getMethodNames(method)) {
+		for (final String name : getMethodNames(method)) {
 			if (!isValidMethodName(name)) {
 				Logger.logError("The method name \"" + name + "\" from the module \"" + moduleVariable + "\" can not be wrapped because it's name is reserved",
 						Activator.PLUGIN_ID);
@@ -122,12 +122,12 @@ public class PythonModuleWrapper extends AbstractModuleWrapper {
 
 	@Override
 	public String classInstantiation(final Class<?> clazz, final String[] parameters) {
-		StringBuilder code = new StringBuilder();
+		final StringBuilder code = new StringBuilder();
 		code.append(clazz.getCanonicalName());
 		code.append('(');
 
 		if (parameters != null) {
-			for (String parameter : parameters) {
+			for (final String parameter : parameters) {
 				code.append(parameter);
 				code.append(", ");
 			}
@@ -145,12 +145,22 @@ public class PythonModuleWrapper extends AbstractModuleWrapper {
 	}
 
 	@Override
+	public String createStaticFieldWrapper(final IEnvironment environment, final Field field) {
+		return JythonScriptEngine.getSaveName(field.getName()) + " = " + field.getDeclaringClass().getName() + '.' + field.getName() + '\n';
+	}
+
+	@Override
 	protected String getNullString() {
 		return "None";
 	}
 
 	@Override
-	public String createStaticFieldWrapper(final IEnvironment environment, final Field field) {
-		return JythonScriptEngine.getSaveName(field.getName()) + " = " + field.getDeclaringClass().getName() + '.' + field.getName() + '\n';
+	protected String getTrueString() {
+		return "True";
+	}
+
+	@Override
+	protected String getFalseString() {
+		return "False";
 	}
 }
