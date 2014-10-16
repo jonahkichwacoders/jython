@@ -145,8 +145,8 @@ public class PythonModuleWrapper extends AbstractModuleWrapper {
 	}
 
 	@Override
-	public String createStaticFieldWrapper(final IEnvironment environment, final Field field) {
-		return JythonScriptEngine.getSaveName(field.getName()) + " = " + field.getDeclaringClass().getName() + '.' + field.getName() + '\n';
+	public String createStaticFieldWrapper(final IEnvironment environment, final String moduleVariable, final Field field) {
+		return JythonScriptEngine.getSaveName(field.getName()) + " = " + moduleVariable + '.' + field.getName() + '\n';
 	}
 
 	@Override
