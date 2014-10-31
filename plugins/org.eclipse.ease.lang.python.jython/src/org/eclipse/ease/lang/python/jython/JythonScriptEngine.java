@@ -18,9 +18,11 @@ import java.net.URL;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Random;
 import java.util.regex.Pattern;
 
 import org.eclipse.core.resources.IFile;
@@ -35,14 +37,18 @@ import org.python.core.CompilerFlags;
 import org.python.core.Py;
 import org.python.core.PyBoolean;
 import org.python.core.PyFloat;
+import org.python.core.PyFunction;
 import org.python.core.PyIgnoreMethodTag;
 import org.python.core.PyInteger;
+import org.python.core.PyJavaPackage;
+import org.python.core.PyJavaType;
 import org.python.core.PyList;
 import org.python.core.PyLong;
 import org.python.core.PyNone;
 import org.python.core.PyObject;
 import org.python.core.PyObjectDerived;
 import org.python.core.PyString;
+import org.python.core.PyStringMap;
 import org.python.util.InteractiveInterpreter;
 
 public class JythonScriptEngine extends AbstractScriptEngine {
@@ -70,7 +76,7 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 	public void terminateCurrent() {
 		try {
 			getEngine().getSystemState().callExitFunc();
-		} catch (PyIgnoreMethodTag e) {
+		} catch (final PyIgnoreMethodTag e) {
 			// TODO handle this exception (but for now, at least know it happened)
 			throw new RuntimeException(e);
 		}
@@ -81,7 +87,7 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 		mEngine = new InteractiveInterpreter();
 
 		// register display callback method to extract execution result
-		DisplayHook displayHook = new DisplayHook();
+		final DisplayHook displayHook = new DisplayHook();
 		getEngine().getSystemState().__displayhook__ = displayHook;
 		getEngine().getSystemState().__dict__.__setitem__("displayhook", displayHook);
 
@@ -96,10 +102,10 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 		/*
 		 * Not optimized for now. This should done at a Python System level
 		 */
-		for (String libraryPath : getPythonLibraries()) {
+		for (final String libraryPath : getPythonLibraries()) {
 			if ((libraryPath != null) && !libraryPath.isEmpty()) {
-				PyString element = new PyString(libraryPath);
-				PyList systemPath = getEngine().getSystemState().path;
+				final PyString element = new PyString(libraryPath);
+				final PyList systemPath = getEngine().getSystemState().path;
 				if (!systemPath.contains(element)) {
 					systemPath.add(0, element);
 				}
@@ -121,7 +127,7 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 	protected Object execute(final Script script, final Object reference, final String fileName, final boolean uiThread) throws Exception {
 		if (uiThread) {
 			// run in UI thread
-			RunnableWithResult<Entry<Object, Exception>> runnable = new RunnableWithResult<Entry<Object, Exception>>() {
+			final RunnableWithResult<Entry<Object, Exception>> runnable = new RunnableWithResult<Entry<Object, Exception>>() {
 
 				@Override
 				public void run() {
@@ -129,7 +135,7 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 					// call execute again, now from correct thread
 					try {
 						setResult(new AbstractMap.SimpleEntry<Object, Exception>(internalExecute(script, reference, fileName), null));
-					} catch (Exception e) {
+					} catch (final Exception e) {
 						setResult(new AbstractMap.SimpleEntry<Object, Exception>(null, e));
 					}
 				}
@@ -138,7 +144,7 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 			Display.getDefault().syncExec(runnable);
 
 			// evaluate result
-			Entry<Object, Exception> result = runnable.getResult();
+			final Entry<Object, Exception> result = runnable.getResult();
 			if (result.getValue() != null)
 				throw (result.getValue());
 
@@ -152,10 +158,10 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 	protected Object internalExecute(final Script script, final Object reference, final String fileName) throws Exception {
 		mResult = Py.None;
 
-		PyObject code = Py.compile_command_flags(script.getCode(), "(none)", CompileMode.exec, new CompilerFlags(), true);
+		final PyObject code = Py.compile_command_flags(script.getCode(), "(none)", CompileMode.exec, new CompilerFlags(), true);
 		if (code == Py.None)
 			throw new RuntimeException("Could not compile code");
-		Object file = script.getFile();
+		final Object file = script.getFile();
 		File f = null;
 		if (file instanceof IFile) {
 			f = ((IFile) file).getLocation().toFile();
@@ -165,9 +171,9 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 		}
 		PyString newString = null;
 		if (f != null) {
-			String absolutePath = f.getAbsolutePath();
+			final String absolutePath = f.getAbsolutePath();
 			setVariable("__File__", absolutePath);
-			String containerPart = f.getParent();
+			final String containerPart = f.getParent();
 			newString = Py.newString(containerPart);
 			Py.getSystemState().path.insert(0, newString);
 		}
@@ -231,11 +237,11 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 	}
 
 	protected Collection<String> getPythonLibraries() {
-		List<String> result = new ArrayList<String>();
-		IPreferenceStore preferences = Activator.getDefault().getPreferenceStore();
-		String libraries = preferences.getString(IPreferenceConstants.PYTHON_LIBRARIES);
-		String[] libs = libraries.split(";");
-		for (String lib : libs) {
+		final List<String> result = new ArrayList<String>();
+		final IPreferenceStore preferences = Activator.getDefault().getPreferenceStore();
+		final String libraries = preferences.getString(IPreferenceConstants.PYTHON_LIBRARIES);
+		final String[] libs = libraries.split(";");
+		for (final String lib : libs) {
 			result.add(lib);
 		}
 		return result;
@@ -254,22 +260,17 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 		// not valid, convert string to valid format
 		final StringBuilder buffer = new StringBuilder(identifier.replaceAll("[^a-zA-Z0-9]", "_"));
 
-		// remove '_' at the beginning
-		while ((buffer.length() > 0) && (buffer.charAt(0) == '_'))
-			buffer.deleteCharAt(0);
-
-		// remove trailing '_'
-		while ((buffer.length() > 0) && (buffer.charAt(buffer.length() - 1) == '_'))
-			buffer.deleteCharAt(buffer.length() - 1);
-
 		// check for valid first character
 		if (buffer.length() > 0) {
 			final char start = buffer.charAt(0);
-			if ((start < 65) || ((start > 90) && (start < 97)) || (start > 122))
+			if (((start < 65) || ((start > 90) && (start < 97)) || (start > 122)) && (start != '_'))
 				buffer.insert(0, '_');
-		} else
-			// buffer is empty
-			buffer.insert(0, '_');
+		} else {
+			// buffer is empty, create a random string of lowercase letters
+			buffer.append('_');
+			for (int index = 0; index < new Random().nextInt(20); index++)
+				buffer.append('a' + new Random().nextInt(26));
+		}
 
 		return buffer.toString();
 	}
@@ -290,12 +291,27 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 
 	@Override
 	protected Object internalGetVariable(final String name) {
-		return getEngine().get(name);
+		Object value = getEngine().get(name);
+		if (value instanceof PyObjectDerived)
+			// unpack wrapped java objects
+			value = ((PyObjectDerived) value).__tojava__(Object.class);
+
+		return value;
 	}
 
 	@Override
 	protected Map<String, Object> internalGetVariables() {
-		throw new RuntimeException("not supported");
+		final HashMap<String, Object> variables = new HashMap<String, Object>();
+
+		final PyObject locals = getEngine().getLocals();
+		final PyList keys = ((PyStringMap) locals).keys();
+		for (final Object key : keys) {
+			final Object value = internalGetVariable(key.toString());
+			if ((!(value instanceof PyFunction)) && (!(value instanceof PyJavaPackage)) && (!(value instanceof PyJavaType)))
+				variables.put(key.toString(), internalGetVariable(key.toString()));
+		}
+
+		return variables;
 	}
 
 	@Override

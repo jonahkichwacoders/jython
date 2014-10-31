@@ -22,48 +22,51 @@ import org.eclipse.ease.Script;
 import org.eclipse.ease.debugging.IScriptDebugFrame;
 
 /**
- * IScriptDebugFrame storing all necessary information from Jython
- * in Eclipse-friendly manor.
- * 
+ * IScriptDebugFrame storing all necessary information from Jython in Eclipse-friendly manor.
+ *
  * @author kloeschmartin
  *
  */
 public class JythonDebugFrame implements IScriptDebugFrame {
 	// Members to be displayed in Eclipse DebugView
-	private String mName;
-	private int mLineNumber;
-	private Script mScript;
+	private final String mName;
+	private final int mLineNumber;
+	private final Script mScript;
 	private Map<String, Object> mLocals = new HashMap<String, Object>();
-		
+
 	/**
-	 * Constructor stores necessary information and creates new script object
-	 * from filename and linenumber.
-	 * 
-	 * This is necessary becaus actual debugger functionality is implemented 
-	 * in edb.py
-	 * 
-	 * @param filename: Filename for current stack-frame
-	 * @param linenumber: Linenumber of current stack-frame
-	 * @param locals: map of all local variables
+	 * Constructor stores necessary information and creates new script object from filename and linenumber.
+	 *
+	 * This is necessary becaus actual debugger functionality is implemented in edb.py
+	 *
+	 * @param filename
+	 *            : Filename for current stack-frame
+	 * @param linenumber
+	 *            : Linenumber of current stack-frame
+	 * @param locals
+	 *            : map of all local variables
 	 */
 	public JythonDebugFrame(String filename, int linenumber, Map<String, Object> locals) {
 		mLineNumber = linenumber;
 		mLocals = locals;
 		// Since edb.py can only handle absolute filepaths it is necessary to
 		// convert locaion to path in workspace.
-		String wsPath = "/" + ResourcesPlugin.getWorkspace().getRoot().getLocation().toFile().toURI().relativize(new File(filename).toURI()).getPath();
-		
+		final String wsPath = "/" + ResourcesPlugin.getWorkspace().getRoot().getLocation().toFile().toURI().relativize(new File(filename).toURI()).getPath();
+
+		// FIXME do not subclass File, just resolve file in workspace
 		mScript = new Script(new JythonFile(wsPath));
 		mName = wsPath;
 	}
-	
+
 	/**
 	 * Overrides File class to have accessible constructor.
+	 *
 	 * @author kloeschmartin
 	 */
 	private class JythonFile extends org.eclipse.core.internal.resources.File {
 		/**
 		 * Public constructor only calls protected superclass constructor.
+		 *
 		 * @param fn
 		 */
 		public JythonFile(String fn) {
@@ -74,7 +77,7 @@ public class JythonDebugFrame implements IScriptDebugFrame {
 	// ************************************************************
 	// Getter methods for necessary information
 	// ************************************************************
-	
+
 	@Override
 	public int getLineNumber() {
 		return mLineNumber;

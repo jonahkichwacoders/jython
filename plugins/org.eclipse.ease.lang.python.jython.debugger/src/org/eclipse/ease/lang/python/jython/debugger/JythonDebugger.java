@@ -6,15 +6,17 @@
  * http://www.eclipse.org/legal/epl-v10.html
  *
  * Contributors:
- *     Christian Pontesegger - initial API
  *     Martin Kloesch - implementation
  *******************************************************************************/
 package org.eclipse.ease.lang.python.jython.debugger;
 
+import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.eclipse.core.runtime.CoreException;
-import org.eclipse.debug.core.DebugEvent;
 import org.eclipse.debug.core.DebugPlugin;
 import org.eclipse.debug.core.model.IBreakpoint;
 import org.eclipse.ease.IExecutionListener;
@@ -31,7 +33,6 @@ import org.eclipse.ease.debugging.events.IDebugEvent;
 import org.eclipse.ease.debugging.events.ResumeRequest;
 import org.eclipse.ease.debugging.events.ResumedEvent;
 import org.eclipse.ease.debugging.events.ScriptReadyEvent;
-import org.eclipse.ease.debugging.events.SuspendedEvent;
 import org.eclipse.ease.debugging.events.TerminateRequest;
 import org.eclipse.ease.lang.python.jython.debugger.model.JythonDebugModelPresentation;
 import org.python.core.Py;
@@ -40,50 +41,46 @@ import org.python.core.PyObject;
 import org.python.core.PyString;
 
 /**
- * Debugger class handling communication between JythonDebugTarget and edb.py
- *
- * @author kloeschmartin
- *
+ * Debugger class handling communication between JythonDebugTarget and edb.py.
  */
 public class JythonDebugger implements IEventProcessor, IExecutionListener {
-	private PyObject mPyDebugger;
+	private PyObject fPythonDebugger;
 
-	/**
-	 * Declarations for variables and function names in Jython:
-	 */
-	public static final String PyDebuggerName = "eclipse_jython_debugger";
-	private static final String PySetDebuggerCmd = "set_debugger";
-	private static final String PySetSuspendOnStartupCmd = "set_suspend_on_startup";
-	private static final String PySetSuspendOnScriptLoad = "set_suspend_on_script_load";
+	/** Declarations for variables and function names in Jython. */
+	public static final String PY_DEBUGGER_NAME = "eclipse_jython_debugger";
+
+	private static final String PY_CMD_SET_DEBUGGER = "set_debugger";
+	private static final String PY_CMD_SET_SHOW_DYNAMIC_CODE = "set_show_dynamic_code";
+	private static final String PY_CMD_RESUME = "resume";
+	private static final String PY_CMD_RUN = "run";
+
 	private static final String PySetBreakpointCmd = "set_break";
 	private static final String PyClearBreakpointsCmd = "clear_all_file_breaks";
 
-	private static final String PyStepoverCmd = "step_stepover";
-	private static final String PyStepintoCmd = "step_stepinto";
-	private static final String PyStepoutCmd = "step_stepout";
-	private static final String PyResumeCmd = "step_continue";
 	private static final String PyTerminateCmd = "step_quit";
 
-	private JythonDebuggerEngine mEngine;
-	private EventDispatchJob mDispatcher;
-	private final boolean mSuspendOnStartup;
-	private final boolean mSuspendOnScriptLoad;
+	private JythonDebuggerEngine fEngine;
+	private EventDispatchJob fDispatcher;
 
-	public JythonDebugger(final JythonDebuggerEngine engine, final boolean suspendOnStartup, final boolean suspendOnScriptLoad) {
-		mEngine = engine;
-		mEngine.addExecutionListener(this);
-		mSuspendOnStartup = suspendOnStartup;
-		mSuspendOnScriptLoad = suspendOnScriptLoad;
+	private final List<Script> fScriptStack = new ArrayList<Script>();
+
+	private boolean fSuspended;
+
+	private final boolean fShowDynamicCode;
+
+	public JythonDebugger(final JythonDebuggerEngine engine, final boolean showDynamicCode) {
+		fEngine = engine;
+		fShowDynamicCode = showDynamicCode;
+		fEngine.addExecutionListener(this);
 	}
 
 	/**
 	 * Method setting up all necessary objects in Jython.
 	 */
 	public void setupJythonObjects(PyObject edb) {
-		mPyDebugger = edb;
-		mPyDebugger.invoke(PySetDebuggerCmd, Py.java2py(this));
-		mPyDebugger.invoke(PySetSuspendOnStartupCmd, new PyBoolean(mSuspendOnStartup));
-		mPyDebugger.invoke(PySetSuspendOnScriptLoad, new PyBoolean(mSuspendOnScriptLoad));
+		fPythonDebugger = edb;
+		fPythonDebugger.invoke(PY_CMD_SET_DEBUGGER, Py.java2py(this));
+		fPythonDebugger.invoke(PY_CMD_SET_SHOW_DYNAMIC_CODE, new PyBoolean(fShowDynamicCode));
 	}
 
 	/**
@@ -93,7 +90,7 @@ public class JythonDebugger implements IEventProcessor, IExecutionListener {
 	 *            dispatcher for communication between debugger and debug target.
 	 */
 	public void setDispatcher(final EventDispatchJob dispatcher) {
-		mDispatcher = dispatcher;
+		fDispatcher = dispatcher;
 	}
 
 	/**
@@ -103,9 +100,9 @@ public class JythonDebugger implements IEventProcessor, IExecutionListener {
 	 *            Debug event to be raised.
 	 */
 	private void fireDispatchEvent(final IDebugEvent event) {
-		synchronized (mDispatcher) {
-			if (mDispatcher != null)
-				mDispatcher.addEvent(event);
+		synchronized (fDispatcher) {
+			if (fDispatcher != null)
+				fDispatcher.addEvent(event);
 		}
 	}
 
@@ -124,12 +121,19 @@ public class JythonDebugger implements IEventProcessor, IExecutionListener {
 			fireDispatchEvent(new EngineTerminatedEvent());
 
 			// allow for garbage collection
-			mEngine = null;
-			synchronized (mDispatcher) {
-				mDispatcher = null;
+			fEngine = null;
+			synchronized (fDispatcher) {
+				fDispatcher = null;
 			}
 			break;
 
+		case SCRIPT_INJECTION_START:
+			fScriptStack.add(0, script);
+			break;
+
+		case SCRIPT_INJECTION_END:
+			fScriptStack.remove(0);
+			break;
 		default:
 			// unknown event
 			break;
@@ -144,7 +148,9 @@ public class JythonDebugger implements IEventProcessor, IExecutionListener {
 	@Override
 	public void handleEvent(final IDebugEvent event) {
 		if (event instanceof ResumeRequest) {
-			handleResumeRequest((ResumeRequest) event);
+			fPythonDebugger.invoke(PY_CMD_RESUME, Py.javas2pys(((ResumeRequest) event).getType()));
+			resume();
+
 		} else if (event instanceof BreakpointRequest) {
 			handleBreakpointRequest((BreakpointRequest) event);
 		} else if (event instanceof GetStackFramesRequest) {
@@ -154,49 +160,13 @@ public class JythonDebugger implements IEventProcessor, IExecutionListener {
 	}
 
 	/**
-	 * Handles ResumeRequest from DebugTarget.
-	 *
-	 * Depending on type of ResumeRequest different method in Jython will be called. Currently implemented cases are: STEP_INTO STEP_OVER STEP_RETURN
-	 *
-	 * If other type given, then resume will be called.
-	 *
-	 * @param event
-	 *            ResumeRequest containing necessary information for action to be performed
-	 */
-	private void handleResumeRequest(final ResumeRequest event) {
-		// Simply switch over the type and call according function
-		switch (event.getType()) {
-		case DebugEvent.STEP_INTO:
-			mPyDebugger.invoke(PyStepintoCmd);
-			break;
-		case DebugEvent.STEP_OVER:
-			mPyDebugger.invoke(PyStepoverCmd);
-			break;
-		case DebugEvent.STEP_RETURN:
-			mPyDebugger.invoke(PyStepoutCmd);
-			break;
-		default:
-			// TODO: think if it would be better to only handle resume request
-			mPyDebugger.invoke(PyResumeCmd);
-			break;
-		}
-	}
-
-	/**
 	 * Terminates the debugger.
 	 */
 	private void terminate() {
-		if (mPyDebugger != null) {
-			mPyDebugger.invoke(PyTerminateCmd);
+		if (fPythonDebugger != null) {
+			fPythonDebugger.invoke(PyTerminateCmd);
 		}
-		mPyDebugger = null;
-	}
-
-	/**
-	 * Function called by Jython Edb object firing a SuspendedEvent with the given stacktrace
-	 */
-	public void fireSuspendEvent(final List<IScriptDebugFrame> stack) {
-		fireDispatchEvent(new SuspendedEvent(1, Thread.currentThread(), stack));
+		fPythonDebugger = null;
 	}
 
 	public void fireResumedEvent(Thread thread, int type) {
@@ -215,13 +185,13 @@ public class JythonDebugger implements IEventProcessor, IExecutionListener {
 			if (!event.getBreakpoint().isEnabled()) {
 				return;
 			}
-		} catch (CoreException e) {
+		} catch (final CoreException e) {
 			return;
 		}
 		// Create parameters in correct format
-		PyObject[] args = new PyObject[1];
+		final PyObject[] args = new PyObject[1];
 		args[0] = Py.java2py(new BreakpointInfo(event.getBreakpoint()));
-		mPyDebugger.invoke(PySetBreakpointCmd, args);
+		fPythonDebugger.invoke(PySetBreakpointCmd, args);
 	}
 
 	/**
@@ -234,7 +204,7 @@ public class JythonDebugger implements IEventProcessor, IExecutionListener {
 	 */
 	public void checkBreakpoints(final String filename) {
 		// Simple check to see if debugger already Garbage-collected
-		if (mPyDebugger == null)
+		if (fPythonDebugger == null)
 			return;
 
 		// BreakpointInfo object is used to have easier access to Breakpoint
@@ -242,27 +212,27 @@ public class JythonDebugger implements IEventProcessor, IExecutionListener {
 		BreakpointInfo info;
 		// Iterate over all Jython breakpoints and set the ones matching new
 		// file.
-		mPyDebugger.invoke(PyClearBreakpointsCmd, new PyString(filename));
-		for (IBreakpoint bp : DebugPlugin.getDefault().getBreakpointManager().getBreakpoints(JythonDebugModelPresentation.ID)) {
+		fPythonDebugger.invoke(PyClearBreakpointsCmd, new PyString(filename));
+		for (final IBreakpoint bp : DebugPlugin.getDefault().getBreakpointManager().getBreakpoints(JythonDebugModelPresentation.ID)) {
 			// simple check to see if Breakpoint is enabled. Try - catch
 			// necessary
 			try {
 				if (!bp.isEnabled()) {
 					continue;
 				}
-			} catch (CoreException e) {
+			} catch (final CoreException e) {
 				continue;
 			}
 			info = new BreakpointInfo(bp);
 
 			// If filename matches add new breakpoint
 			if (info.getFilename().equals(filename)) {
-				PyObject[] args = new PyObject[1];
+				final PyObject[] args = new PyObject[1];
 				args[0] = Py.java2py(info);
 
 				// We can call set_break since it will update existing
 				// breakpoint if necessary.
-				mPyDebugger.invoke(PySetBreakpointCmd, args);
+				fPythonDebugger.invoke(PySetBreakpointCmd, args);
 			}
 		}
 	}
@@ -274,7 +244,82 @@ public class JythonDebugger implements IEventProcessor, IExecutionListener {
 	 *            Script to be executed.
 	 */
 	public void scriptReady(final Script script) {
-		ScriptReadyEvent ev = new ScriptReadyEvent(script, Thread.currentThread(), true);
-		fireDispatchEvent(ev);
+		fireDispatchEvent(new ScriptReadyEvent(script, Thread.currentThread(), true));
+		suspend(null);
 	}
+
+	private void resume() {
+		synchronized (fEngine) {
+			fSuspended = false;
+			fEngine.notifyAll();
+		}
+	}
+
+	private void suspend(final List<IScriptDebugFrame> stack) {
+		// fireDispatchEvent(new SuspendedEvent(1, Thread.currentThread(), stack));
+
+		synchronized (fEngine) {
+			fSuspended = true;
+
+			try {
+				while (fSuspended)
+					fEngine.wait();
+
+			} catch (final InterruptedException e) {
+				fSuspended = false;
+			}
+
+			// FIXME mode is not set here, find out!
+			fireDispatchEvent(new ResumedEvent(Thread.currentThread(), 1));
+		}
+	}
+
+	public void callback(String type) {
+		System.out.println(type);
+	}
+
+	public Object execute(Script script) {
+		try {
+			fPythonDebugger.invoke(PY_CMD_RUN, Py.javas2pys(script.getCode(), registerScript(script)));
+		} catch (final Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	private final Map<String, Script> fScriptRegistry = new HashMap<String, Script>();
+
+	private String registerScript(Script script) {
+		final String reference = script.isDynamic() ? getHash(script) : script.getCommand().toString();
+		fScriptRegistry.put(reference, script);
+		return reference;
+	}
+
+	private static String getHash(Script script) {
+		try {
+			final MessageDigest md = MessageDigest.getInstance("MD5");
+			final byte[] digest = md.digest(script.getCode().getBytes("UTF-8"));
+			return "__hash_" + bytesToHex(digest);
+		} catch (final Exception e) {
+			e.printStackTrace();
+		}
+
+		return "__hash_none";
+	}
+
+	// taken from http://stackoverflow.com/questions/9655181/convert-from-byte-array-to-hex-string-in-java
+	final protected static char[] hexArray = "0123456789ABCDEF".toCharArray();
+
+	// taken from http://stackoverflow.com/questions/9655181/convert-from-byte-array-to-hex-string-in-java
+	public static String bytesToHex(byte[] bytes) {
+		final char[] hexChars = new char[bytes.length * 2];
+		for (int j = 0; j < bytes.length; j++) {
+			final int v = bytes[j] & 0xFF;
+			hexChars[j * 2] = hexArray[v >>> 4];
+			hexChars[j * 2 + 1] = hexArray[v & 0x0F];
+		}
+		return new String(hexChars);
+	}
+
 }
