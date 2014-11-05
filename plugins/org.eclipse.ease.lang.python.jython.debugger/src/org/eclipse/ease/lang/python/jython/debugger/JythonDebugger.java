@@ -12,33 +12,21 @@ package org.eclipse.ease.lang.python.jython.debugger;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
 import org.eclipse.core.resources.IFile;
-import org.eclipse.core.runtime.CoreException;
 import org.eclipse.debug.core.DebugEvent;
-import org.eclipse.debug.core.model.IBreakpoint;
 import org.eclipse.ease.ExitException;
 import org.eclipse.ease.IExecutionListener;
-import org.eclipse.ease.IScriptEngine;
 import org.eclipse.ease.Script;
 import org.eclipse.ease.debugging.AbstractScriptDebugger;
 import org.eclipse.ease.debugging.IEventProcessor;
 import org.eclipse.ease.debugging.IScriptDebugFrame;
-import org.eclipse.ease.debugging.events.BreakpointRequest;
-import org.eclipse.ease.debugging.events.EngineStartedEvent;
-import org.eclipse.ease.debugging.events.EngineTerminatedEvent;
 import org.eclipse.ease.debugging.events.IDebugEvent;
-import org.eclipse.ease.debugging.events.ResumeRequest;
-import org.eclipse.ease.debugging.events.ResumedEvent;
-import org.eclipse.ease.debugging.events.ScriptReadyEvent;
-import org.eclipse.ease.debugging.events.SuspendedEvent;
 import org.eclipse.ease.debugging.events.TerminateRequest;
 import org.python.core.Py;
 import org.python.core.PyFrame;
@@ -99,7 +87,7 @@ public class JythonDebugger extends AbstractScriptDebugger implements IEventProc
 
 		@Override
 		public Map<String, Object> getVariables() {
-			return fEngine.getVariables();
+			return getEngine().getVariables();
 		}
 	}
 
@@ -107,22 +95,10 @@ public class JythonDebugger extends AbstractScriptDebugger implements IEventProc
 	private static final String PY_CMD_SET_DEBUGGER = "set_debugger";
 	private static final String PY_CMD_RUN = "run";
 
-	private JythonDebuggerEngine fEngine;
-
-	private boolean fSuspended = false;
-
-	private final boolean fShowDynamicCode;
-
-	private int fResumeType;
-
 	private PyObject fPythonStub;
 
-	private List<IScriptDebugFrame> fLastTrace = Collections.emptyList();
-
 	public JythonDebugger(final JythonDebuggerEngine engine, final boolean showDynamicCode) {
-		fEngine = engine;
-		fShowDynamicCode = showDynamicCode;
-		fEngine.addExecutionListener(this);
+		super(engine, showDynamicCode);
 	}
 
 	/**
@@ -137,83 +113,30 @@ public class JythonDebugger extends AbstractScriptDebugger implements IEventProc
 	}
 
 	/**
-	 * Notify function called by Eclipse EASE framework.
-	 *
-	 * Raises according events depending on status
-	 */
-	@Override
-	public void notify(final IScriptEngine engine, final Script script, final int status) {
-		switch (status) {
-		case ENGINE_START:
-			fireDispatchEvent(new EngineStartedEvent());
-			break;
-
-		case ENGINE_END:
-			fireDispatchEvent(new EngineTerminatedEvent());
-
-			// allow for garbage collection
-			fEngine.removeExecutionListener(this);
-			fEngine = null;
-			break;
-
-		default:
-			// unknown event
-			break;
-		}
-	}
-
-	private final Map<Script, Set<Integer>> fBreakpoints = new HashMap<Script, Set<Integer>>();
-
-	/**
 	 * Function called to handle incoming event.
 	 *
 	 * Depending on type corresponding handler will be called
 	 */
 	@Override
 	public void handleEvent(final IDebugEvent event) {
-		if (event instanceof ResumeRequest) {
-			if (((ResumeRequest) event).getType() != DebugEvent.UNSPECIFIED)
-				fResumeType = ((ResumeRequest) event).getType();
+		if (event instanceof TerminateRequest) {
+			resume(DebugEvent.STEP_END);
 
-			resume();
-
-		} else if (event instanceof BreakpointRequest) {
-			IBreakpoint breakpoint = ((BreakpointRequest) event).getBreakpoint();
-
-			try {
-				Integer lineNumber = (Integer) breakpoint.getMarker().getAttribute("lineNumber");
-
-				if (!fBreakpoints.containsKey(((BreakpointRequest) event).getScript()))
-					fBreakpoints.put(((BreakpointRequest) event).getScript(), new HashSet<Integer>());
-
-				fBreakpoints.get(((BreakpointRequest) event).getScript()).add(lineNumber);
-
-			} catch (CoreException e) {
-				// TODO handle this exception (but for now, at least know it happened)
-				throw new RuntimeException(e);
-			}
-
-			// } else if (event instanceof GetStackFramesRequest) {
-		} else if (event instanceof TerminateRequest) {
-			fResumeType = DebugEvent.STEP_END;
-			resume();
-		}
+		} else
+			super.handleEvent(event);
 	}
 
-	private void resume() {
-		synchronized (fEngine) {
-			fSuspended = false;
-			fEngine.notifyAll();
-		}
+	private static boolean isUserCode(final PyFrame frame) {
+		return frame.f_code.co_filename.startsWith("__ref_");
 	}
 
-	private List<IScriptDebugFrame> getStackTrace(final PyFrame origin) {
+	private List<IScriptDebugFrame> getStacktrace(final PyFrame origin) {
 		List<IScriptDebugFrame> trace = new ArrayList<IScriptDebugFrame>();
 
 		PyFrame frame = origin;
 		while (frame != null) {
 			if (isUserCode(frame)) {
-				if (fShowDynamicCode || !fScriptRegistry.get(frame.f_code.co_filename).isDynamic())
+				if (isTrackedScript(fScriptRegistry.get(frame.f_code.co_filename)))
 					trace.add(new JythonDebugFrame(frame));
 			}
 
@@ -223,88 +146,26 @@ public class JythonDebugger extends AbstractScriptDebugger implements IEventProc
 		return trace;
 	}
 
-	private static boolean isUserCode(final PyFrame frame) {
-		return frame.f_code.co_filename.startsWith("__ref_");
-	}
-
-	private void suspend(final IDebugEvent event) {
-		if (event instanceof SuspendedEvent)
-			fLastTrace = ((SuspendedEvent) event).getDebugFrames();
-
-		synchronized (fEngine) {
-			// need to fire event in synchronized code to avoid getting a resume event too soon
-			fSuspended = true;
-			fireDispatchEvent(event);
-
-			try {
-				while (fSuspended)
-					fEngine.wait();
-
-			} catch (final InterruptedException e) {
-				fSuspended = false;
-			}
-
-			fireDispatchEvent(new ResumedEvent(Thread.currentThread(), fResumeType));
-		}
-	}
-
 	public void traceDispatch(final PyFrame frame, final String type) {
-		if (fResumeType == DebugEvent.STEP_END)
+		if (getResumeType() == DebugEvent.STEP_END)
 			throw new ExitException("Debug aborted by user");
 
 		if (isUserCode(frame)) {
 			Script script = fScriptRegistry.get(frame.f_code.co_filename);
 
-			if (fShowDynamicCode || !script.isDynamic()) {
-				System.out.println("traceDispatch (" + type.toString() + "): " + frame.f_code.co_filename + ", " + frame.f_lineno);
+			if (isTrackedScript(script)) {
 
-				List<IScriptDebugFrame> lastTrace = fLastTrace;
-				List<IScriptDebugFrame> currentTrace = getStackTrace(frame);
+				// update stacktrace
+				setStacktrace(getStacktrace(frame));
 
-				// check for user breakpoint
-				Set<Integer> breakpoints = fBreakpoints.get(script);
-				if ((breakpoints != null) && (breakpoints.contains(frame.f_lineno))) {
-					// breakpoint hit
-					suspend(new SuspendedEvent(DebugEvent.CLIENT_REQUEST, Thread.currentThread(), currentTrace));
-
-				} else if (("call".equals(type)) && (frame.f_lineno == 0))
-					// script ready event
-					suspend(new ScriptReadyEvent(script, Thread.currentThread(), currentTrace.size() == 1));
-
-				else if ("line".equals(type)) {
-					// executing scripts
-					switch (fResumeType) {
-					case DebugEvent.STEP_INTO:
-						if (lastTrace.size() <= currentTrace.size())
-							suspend(new SuspendedEvent(fResumeType, Thread.currentThread(), currentTrace));
-
-						break;
-
-					case DebugEvent.STEP_OVER:
-						if (lastTrace.size() >= currentTrace.size())
-							suspend(new SuspendedEvent(fResumeType, Thread.currentThread(), currentTrace));
-
-						break;
-
-					case DebugEvent.STEP_RETURN:
-						if (lastTrace.size() > currentTrace.size())
-							suspend(new SuspendedEvent(fResumeType, Thread.currentThread(), currentTrace));
-
-						break;
-					}
-				}
+				// do not process script load event (line == 0)
+				if (frame.f_lineno != 0)
+					processLine(script, frame.f_lineno);
 			}
 		}
 	}
 
 	public Object execute(final Script script) {
-		try {
-			System.out.println(script.getCode());
-		} catch (Exception e) {
-			// TODO handle this exception (but for now, at least know it happened)
-			throw new RuntimeException(e);
-			
-		}
 		fPythonStub.invoke(PY_CMD_RUN, Py.javas2pys(script, registerScript(script)));
 
 		// FIXME return execution result
@@ -332,5 +193,4 @@ public class JythonDebugger extends AbstractScriptDebugger implements IEventProc
 
 		return buffer.toString();
 	}
-
 }
