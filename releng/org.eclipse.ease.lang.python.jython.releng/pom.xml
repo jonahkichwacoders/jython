@@ -94,6 +94,7 @@
 
 		<!-- Modules -->
 		<module>../../plugins/org.eclipse.ease.lang.python.jython</module>
+		<module>../../plugins/org.eclipse.ease.lang.python.jython.debugger</module>
 		<module>../../plugins/org.jython</module>
 		<module>../../features/org.eclipse.ease.lang.python.jython.feature</module>
 
