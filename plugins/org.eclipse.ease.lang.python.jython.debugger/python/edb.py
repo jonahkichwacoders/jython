@@ -43,7 +43,8 @@ class CodeTracer:
         '''
         Executes the file given using the bdb.Bdb.run method.
         '''
-        compiledCode = compile(script.getCode() + "\n", filename, "exec")
+        code = "{}\n".format(script.getCode())
+        compiledCode = compile(code, filename, "exec")
 
         globals = __main__.__dict__
         locals = __main__.__dict__
