@@ -1,5 +1,2 @@
-/bin
-/cachedir
-/target
-/**/*$py.class
-
+/cachedir/
+/target/
