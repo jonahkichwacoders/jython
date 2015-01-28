@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: Jython Binaries
 Bundle-SymbolicName: org.jython
-Bundle-Version: 2.7.0
+Bundle-Version: 2.7.0.qualifier
 Bundle-ClassPath: jython-standalone-2.7-b3.jar
 Bundle-Vendor: Python Software Foundation
 Eclipse-BuddyPolicy: global
