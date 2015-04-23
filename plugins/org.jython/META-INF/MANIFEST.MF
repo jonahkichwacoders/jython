@@ -6,6 +6,7 @@ Bundle-Version: 2.7.0.qualifier
 Bundle-ClassPath: jython-standalone-2.7-b3.jar
 Bundle-Vendor: Python Software Foundation
 Eclipse-BuddyPolicy: global
+Eclipse-BundleShape: dir
 Export-Package: com.kenai.constantine,
  com.kenai.constantine.platform,
  com.kenai.jffi,
