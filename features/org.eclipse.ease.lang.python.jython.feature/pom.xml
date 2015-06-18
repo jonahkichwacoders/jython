@@ -19,7 +19,7 @@
   	<relativePath>../../releng/org.eclipse.ease.lang.python.jython.releng</relativePath>
   	<groupId>org.eclipse.ease.lang.python.jython</groupId>
   	<artifactId>org.eclipse.ease.lang.python.jython.releng</artifactId>
-  	<version>0.2.0-SNAPSHOT</version>
+  	<version>0.3.0-SNAPSHOT</version>
   </parent>
 
 </project> 
