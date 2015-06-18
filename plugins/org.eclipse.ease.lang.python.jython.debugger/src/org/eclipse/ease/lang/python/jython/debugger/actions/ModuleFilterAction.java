@@ -10,7 +10,6 @@
  *******************************************************************************/
 package org.eclipse.ease.lang.python.jython.debugger.actions;
 
-import org.eclipse.debug.core.DebugException;
 import org.eclipse.ease.debugging.ScriptDebugVariable;
 import org.eclipse.ease.modules.AbstractScriptModule;
 import org.eclipse.jface.viewers.Viewer;
@@ -19,7 +18,7 @@ public class ModuleFilterAction extends ViewFilterAction {
 
 	/*
 	 * (non-Javadoc)
-	 * 
+	 *
 	 * @see org.eclipse.wst.jsdt.debug.internal.ui.actions.ViewFilterAction#getPreferenceKey()
 	 */
 	@Override
@@ -29,18 +28,15 @@ public class ModuleFilterAction extends ViewFilterAction {
 
 	/*
 	 * (non-Javadoc)
-	 * 
+	 *
 	 * @see org.eclipse.jface.viewers.ViewerFilter#select(org.eclipse.jface.viewers.Viewer, java.lang.Object, java.lang.Object)
 	 */
 	@Override
 	public boolean select(final Viewer viewer, final Object parentElement, final Object element) {
-		if(element instanceof ScriptDebugVariable) {
-			try {
-				Object value = ((ScriptDebugVariable)element).getValue().getValue();
-				if(value instanceof AbstractScriptModule)
-					return getValue();
-			} catch (DebugException e) {
-			}
+		if (element instanceof ScriptDebugVariable) {
+			Object value = ((ScriptDebugVariable) element).getValue().getValue();
+			if (value instanceof AbstractScriptModule)
+				return getValue();
 		}
 
 		return true;

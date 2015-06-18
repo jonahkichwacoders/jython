@@ -40,6 +40,7 @@ public class JythonDebugger extends AbstractScriptDebugger implements IEventProc
 	public class JythonDebugFrame implements IScriptDebugFrame {
 
 		private final PyFrame fFrame;
+		private int fLineNumber = 0;
 
 		public JythonDebugFrame(final PyFrame frame) {
 			fFrame = frame;
@@ -47,7 +48,7 @@ public class JythonDebugger extends AbstractScriptDebugger implements IEventProc
 
 		@Override
 		public int getLineNumber() {
-			return fFrame.f_lineno;
+			return (fLineNumber > 0) ? fLineNumber : fFrame.f_lineno;
 		}
 
 		@Override
@@ -88,6 +89,16 @@ public class JythonDebugger extends AbstractScriptDebugger implements IEventProc
 		@Override
 		public Map<String, Object> getVariables() {
 			return getEngine().getVariables();
+		}
+
+		/*
+		 * (non-Javadoc)
+		 *
+		 * @see org.eclipse.ease.debugging.IScriptDebugFrame#setLineNumber(int)
+		 */
+		@Override
+		public void setLineNumber(final int lineNumber) {
+			fLineNumber = lineNumber;
 		}
 	}
 
