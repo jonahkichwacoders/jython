@@ -11,8 +11,6 @@
 package org.eclipse.ease.lang.python.jython.debugger;
 
 import java.io.InputStream;
-import java.util.HashMap;
-import java.util.Map;
 
 import org.eclipse.debug.core.ILaunch;
 import org.eclipse.ease.IDebugEngine;
@@ -29,8 +27,6 @@ import org.python.core.PyObject;
  */
 public class JythonDebuggerEngine extends JythonScriptEngine implements IDebugEngine {
 	private JythonDebugger fDebugger = null;
-
-	private final Map<String, Script> fDynamicCode = new HashMap<String, Script>();
 
 	public void setDebugger(final JythonDebugger debugger) {
 		fDebugger = debugger;
@@ -68,7 +64,7 @@ public class JythonDebuggerEngine extends JythonScriptEngine implements IDebugEn
 	}
 
 	@Override
-	protected Object internalExecute(Script script, Object reference, String fileName) throws Exception {
+	protected Object internalExecute(final Script script, final Object reference, final String fileName) throws Exception {
 		if (fDebugger != null)
 			return fDebugger.execute(script);
 

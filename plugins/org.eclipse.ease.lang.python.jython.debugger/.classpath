@@ -6,6 +6,7 @@
 			<accessrule kind="accessible" pattern="org/eclipse/core/internal/resources/**"/>
 		</accessrules>
 	</classpathentry>
-	<classpathentry kind="src" path="src"/>
-	<classpathentry kind="output" path="bin"/>
+	<classpathentry kind="src" path="src/"/>
+	<classpathentry kind="src" path="python/"/>
+	<classpathentry kind="output" path="target/classes"/>
 </classpath>

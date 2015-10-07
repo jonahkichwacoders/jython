@@ -22,12 +22,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Random;
-import java.util.regex.Pattern;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.ease.AbstractScriptEngine;
 import org.eclipse.ease.Script;
+import org.eclipse.ease.lang.python.PythonHelper;
 import org.eclipse.ease.lang.python.preferences.IPreferenceConstants;
 import org.eclipse.ease.tools.RunnableWithResult;
 import org.eclipse.jface.preference.IPreferenceStore;
@@ -249,34 +248,7 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 
 	@Override
 	public String getSaveVariableName(final String name) {
-		return getSaveName(name);
-	}
-
-	public static String getSaveName(final String identifier) {
-		// check if name is already valid
-		if (isSaveName(identifier))
-			return identifier;
-
-		// not valid, convert string to valid format
-		final StringBuilder buffer = new StringBuilder(identifier.replaceAll("[^a-zA-Z0-9]", "_"));
-
-		// check for valid first character
-		if (buffer.length() > 0) {
-			final char start = buffer.charAt(0);
-			if (((start < 65) || ((start > 90) && (start < 97)) || (start > 122)) && (start != '_'))
-				buffer.insert(0, '_');
-		} else {
-			// buffer is empty, create a random string of lowercase letters
-			buffer.append('_');
-			for (int index = 0; index < new Random().nextInt(20); index++)
-				buffer.append('a' + new Random().nextInt(26));
-		}
-
-		return buffer.toString();
-	}
-
-	public static boolean isSaveName(final String identifier) {
-		return Pattern.matches("[a-zA-Z_$][a-zA-Z0-9_$]*", identifier);
+		return PythonHelper.getSaveName(name);
 	}
 
 	@Override
@@ -321,7 +293,7 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 
 	@Override
 	protected void internalSetVariable(final String name, final Object content) {
-		if (!isSaveName(name))
+		if (!PythonHelper.isSaveName(name))
 			throw new RuntimeException("\"" + name + "\" is not a valid Python variable name");
 
 		getEngine().set(name, content);

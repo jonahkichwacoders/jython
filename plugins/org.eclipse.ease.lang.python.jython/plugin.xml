@@ -6,7 +6,8 @@
       <engine
             class="org.eclipse.ease.lang.python.jython.JythonScriptEngine"
             id="org.eclipse.ease.python.jython"
-            name="Python (Jython)">
+            name="Python (Jython)"
+            priority="10">
          <binding
                scriptType="Python">
          </binding>
@@ -15,10 +16,6 @@
             class="org.eclipse.ease.lang.python.jython.PythonEnvironementBootStrapper"
             engineID="org.eclipse.ease.python.jython">
       </launchExtension>
-      <moduleWrapper
-            class="org.eclipse.ease.lang.python.jython.PythonModuleWrapper"
-            engineID="org.eclipse.ease.python.jython">
-      </moduleWrapper>
    </extension>
  <extension
        point="org.eclipse.ui.preferencePages">
