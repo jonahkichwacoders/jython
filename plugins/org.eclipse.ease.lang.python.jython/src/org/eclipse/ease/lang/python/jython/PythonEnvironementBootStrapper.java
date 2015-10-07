@@ -23,12 +23,12 @@ public class PythonEnvironementBootStrapper implements IScriptEngineLaunchExtens
 
 		// load environment module
 		final StringBuilder code = new StringBuilder("from org.eclipse.ease.modules import EnvironmentModule\n");
-		code.append("EnvironmentModule().loadModule(\"/System/Environment\")\n");
-
 		// register top level packages
 		code.append("import java\n");
 		code.append("import org\n");
 		code.append("import com\n");
+
+		code.append("EnvironmentModule().loadModule(\"/System/Environment\")\n");
 
 		engine.executeAsync(code);
 	}
