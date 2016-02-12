@@ -23,6 +23,7 @@ import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.python.core.PySystemState;
+import org.python.util.PythonInterpreter;
 
 /**
  * The activator class controls the plug-in life cycle
@@ -46,17 +47,12 @@ public class Activator extends AbstractUIPlugin {
 		super.start(context);
 
 		plugin = this;
-		//		Properties preProperties = System.getProperties();
-		Properties preProperties = PySystemState.getBaseProperties();
 
 		Properties postProperties = new Properties();
 		postProperties.put("python.home", getPluginRootDir());
 		postProperties.put("python.modules.builtin", "errno");
-		//		Py.getSystemState().setClassLoader(this.getClass().getClassLoader());
-		PySystemState.initialize(preProperties, postProperties, new String[0]);
 
-		//				PyObject load = org.python.core.imp.
-		//		System.out.println(load);
+		PythonInterpreter.initialize(System.getProperties(), postProperties, null);
 
 		// set packageManager AFTER initialization as init will set it, too
 		// FIXME for now caching is disabled. We need to track how the cache destination is calculated
@@ -87,7 +83,7 @@ public class Activator extends AbstractUIPlugin {
 	public static List<File> getLibraryFolders() {
 		ArrayList<File> folders = new ArrayList<File>();
 		File rootFolder = new File(getPluginRootDir() + "/Lib");
-		if(rootFolder.exists())
+		if (rootFolder.exists())
 			folders.add(rootFolder);
 
 		return folders;
