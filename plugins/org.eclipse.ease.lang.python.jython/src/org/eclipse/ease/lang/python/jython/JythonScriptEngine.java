@@ -15,13 +15,11 @@ import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URL;
-import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.ease.AbstractScriptEngine;
@@ -123,31 +121,22 @@ public class JythonScriptEngine extends AbstractScriptEngine {
 	}
 
 	@Override
-	protected Object execute(final Script script, final Object reference, final String fileName, final boolean uiThread) throws Exception {
+	protected Object execute(final Script script, final Object reference, final String fileName, final boolean uiThread) throws Throwable {
 		if (uiThread) {
 			// run in UI thread
-			final RunnableWithResult<Entry<Object, Exception>> runnable = new RunnableWithResult<Entry<Object, Exception>>() {
+			final RunnableWithResult<Object> runnable = new RunnableWithResult<Object>() {
 
 				@Override
-				public void run() {
+				public void runWithTry() throws Throwable {
 
 					// call execute again, now from correct thread
-					try {
-						setResult(new AbstractMap.SimpleEntry<Object, Exception>(internalExecute(script, reference, fileName), null));
-					} catch (final Exception e) {
-						setResult(new AbstractMap.SimpleEntry<Object, Exception>(null, e));
-					}
+					setResult(internalExecute(script, reference, fileName));
 				}
 			};
 
 			Display.getDefault().syncExec(runnable);
 
-			// evaluate result
-			final Entry<Object, Exception> result = runnable.getResult();
-			if (result.getValue() != null)
-				throw (result.getValue());
-
-			return result.getKey();
+			return runnable.getResultFromTry();
 
 		} else
 			// run in engine thread

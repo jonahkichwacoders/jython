@@ -44,22 +44,34 @@ public class JythonPackageManager extends SysPackageManager {
 		}
 		String qualifiedName = buffer.toString();
 
+		// first lookup in cache
+		if (mLookupCache.containsKey(qualifiedName))
+			return mLookupCache.get(qualifiedName);
+
 		if (isPythonLib(qualifiedName)) {
+			// this is a python library, not a java package
 			mLookupCache.put(qualifiedName, false);
 			return false;
 		}
 
-		if (mLookupCache.containsKey(qualifiedName))
-			return mLookupCache.get(qualifiedName);
-
 		// not from python, might be something from java
+		if (qualifiedName.endsWith(".__path__")) {
+			qualifiedName = qualifiedName.substring(0, qualifiedName.length() - 9);
+
+			// lookup cache again
+			if (mLookupCache.containsKey(qualifiedName))
+				return mLookupCache.get(qualifiedName);
+		}
+
 		try {
 			// try to locate class
-			Class.forName(pkg + "." + name);
+			Class.forName(qualifiedName);
+			// this is a class, not a package
 			mLookupCache.put(qualifiedName, false);
 			return false;
 
 		} catch (ClassNotFoundException e) {
+			// must be a package
 			mLookupCache.put(qualifiedName, true);
 			return true;
 		}
@@ -87,6 +99,7 @@ public class JythonPackageManager extends SysPackageManager {
 		// import unittest ERROR / OK w/o PackageManager OK
 		// import xml.dom.minidom ERROR / OK w/o PackageManager
 		// import xml.etree.ElementTree ERROR / OK w/o PackageManager
+		// import httplib
 	}
 
 	private boolean isPythonLib(final String qualifiedName) {
