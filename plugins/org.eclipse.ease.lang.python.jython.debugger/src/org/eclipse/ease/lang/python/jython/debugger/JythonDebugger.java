@@ -26,6 +26,7 @@ import org.eclipse.ease.Script;
 import org.eclipse.ease.debugging.AbstractScriptDebugger;
 import org.eclipse.ease.debugging.IEventProcessor;
 import org.eclipse.ease.debugging.IScriptDebugFrame;
+import org.eclipse.ease.debugging.ScriptDebugFrame;
 import org.eclipse.ease.debugging.events.IDebugEvent;
 import org.eclipse.ease.debugging.events.TerminateRequest;
 import org.python.core.Py;
@@ -37,29 +38,10 @@ import org.python.core.PyObject;
  */
 public class JythonDebugger extends AbstractScriptDebugger implements IEventProcessor, IExecutionListener {
 
-	public class JythonDebugFrame implements IScriptDebugFrame {
-
-		private final PyFrame fFrame;
-		private int fLineNumber = 0;
+	public class JythonDebugFrame extends ScriptDebugFrame implements IScriptDebugFrame {
 
 		public JythonDebugFrame(final PyFrame frame) {
-			fFrame = frame;
-		}
-
-		@Override
-		public int getLineNumber() {
-			return (fLineNumber > 0) ? fLineNumber : fFrame.f_lineno;
-		}
-
-		@Override
-		public Script getScript() {
-			return fScriptRegistry.get(fFrame.f_code.co_filename);
-		}
-
-		@Override
-		public int getType() {
-			// return mFnOrScript.isFunction() ? TYPE_FUNCTION : TYPE_FILE;
-			return TYPE_FILE;
+			super(fScriptRegistry.get(frame.f_code.co_filename), frame.f_lineno, TYPE_FILE);
 		}
 
 		@Override
@@ -89,16 +71,6 @@ public class JythonDebugger extends AbstractScriptDebugger implements IEventProc
 		@Override
 		public Map<String, Object> getVariables() {
 			return getEngine().getVariables();
-		}
-
-		/*
-		 * (non-Javadoc)
-		 *
-		 * @see org.eclipse.ease.debugging.IScriptDebugFrame#setLineNumber(int)
-		 */
-		@Override
-		public void setLineNumber(final int lineNumber) {
-			fLineNumber = lineNumber;
 		}
 	}
 
